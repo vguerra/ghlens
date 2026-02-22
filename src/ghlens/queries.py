@@ -6,7 +6,7 @@ query PullRequests($owner: String!, $repo: String!, $states: [PullRequestState!]
     resetAt
   }
   repository(owner: $owner, name: $repo) {
-    pullRequests(first: 50, states: $states, labelNames: $labels, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+    pullRequests(first: 50, states: $states, labels: $labels, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
       pageInfo {
         hasNextPage
         endCursor
