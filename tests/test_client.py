@@ -301,6 +301,33 @@ class TestFetchPrs:
             prs = list(client.fetch_prs("owner", "repo", ["MERGED"], limit=1))
         assert len(prs) == 1
 
+    def test_labels_variable_sent_when_specified(self, respx_mock):
+        route = respx_mock.post(GQL_URL).mock(
+            return_value=httpx.Response(200, json=pr_list_response([pr_node()]))
+        )
+        with GitHubClient("token") as client:
+            list(client.fetch_prs("owner", "repo", ["MERGED"], labels=["bug"]))
+        body = json.loads(route.calls[0].request.content)
+        assert body["variables"]["labels"] == ["bug"]
+
+    def test_no_labels_omits_labels_variable(self, respx_mock):
+        route = respx_mock.post(GQL_URL).mock(
+            return_value=httpx.Response(200, json=pr_list_response([pr_node()]))
+        )
+        with GitHubClient("token") as client:
+            list(client.fetch_prs("owner", "repo", ["MERGED"]))
+        body = json.loads(route.calls[0].request.content)
+        assert "labels" not in body.get("variables", {})
+
+    def test_multiple_labels_sent_as_list(self, respx_mock):
+        route = respx_mock.post(GQL_URL).mock(
+            return_value=httpx.Response(200, json=pr_list_response([pr_node()]))
+        )
+        with GitHubClient("token") as client:
+            list(client.fetch_prs("owner", "repo", ["MERGED"], labels=["bug", "enhancement"]))
+        body = json.loads(route.calls[0].request.content)
+        assert body["variables"]["labels"] == ["bug", "enhancement"]
+
 
 # ---------------------------------------------------------------------------
 # Comment overflow pagination (_complete_comments)

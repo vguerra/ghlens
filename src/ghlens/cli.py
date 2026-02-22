@@ -54,12 +54,20 @@ def cli() -> None:
     default=None,
     help="Maximum number of PRs to fetch.",
 )
+@click.option(
+    "--label",
+    "labels",
+    multiple=True,
+    metavar="LABEL",
+    help="Filter by label (repeat for multiple, OR logic).",
+)
 def fetch(
     repo: str,
     state: str,
     output_format: str,
     output_path: Path | None,
     limit: int | None,
+    labels: tuple[str, ...],
 ) -> None:
     """Fetch pull requests and their comments from OWNER/REPO."""
     # Validate OWNER/REPO format
@@ -97,7 +105,7 @@ def fetch(
         ) as progress:
             task_id = progress.add_task(f"Fetching PRs from {repo}…", total=None)
             with GitHubClient(token) as client:
-                for pr in client.fetch_prs(owner, repo_name, states, limit):
+                for pr in client.fetch_prs(owner, repo_name, states, limit, labels=list(labels) or None):
                     prs.append(pr)
                     progress.update(task_id, description=f"Fetched {len(prs)} PRs from {repo}…")
     except GhLensError as exc:

@@ -1,12 +1,12 @@
 PR_LIST_QUERY = """
-query PullRequests($owner: String!, $repo: String!, $states: [PullRequestState!], $after: String) {
+query PullRequests($owner: String!, $repo: String!, $states: [PullRequestState!], $labels: [String!], $after: String) {
   rateLimit {
     cost
     remaining
     resetAt
   }
   repository(owner: $owner, name: $repo) {
-    pullRequests(first: 50, states: $states, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
+    pullRequests(first: 50, states: $states, labelNames: $labels, after: $after, orderBy: {field: CREATED_AT, direction: DESC}) {
       pageInfo {
         hasNextPage
         endCursor

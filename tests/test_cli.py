@@ -151,6 +151,26 @@ class TestFetchJson:
         call_args = mock_client.fetch_prs.call_args[0]
         assert set(call_args[2]) == {"OPEN", "CLOSED", "MERGED"}
 
+    def test_single_label_passed_to_client(self, runner, mock_client):
+        runner.invoke(
+            cli, ["fetch", "owner/repo", "--label", "bug"], env={"GITHUB_TOKEN": "tok"}
+        )
+        assert mock_client.fetch_prs.call_args.kwargs["labels"] == ["bug"]
+
+    def test_multiple_labels_passed_to_client(self, runner, mock_client):
+        runner.invoke(
+            cli,
+            ["fetch", "owner/repo", "--label", "bug", "--label", "enhancement"],
+            env={"GITHUB_TOKEN": "tok"},
+        )
+        assert mock_client.fetch_prs.call_args.kwargs["labels"] == ["bug", "enhancement"]
+
+    def test_no_label_passes_none_to_client(self, runner, mock_client):
+        runner.invoke(
+            cli, ["fetch", "owner/repo"], env={"GITHUB_TOKEN": "tok"}
+        )
+        assert mock_client.fetch_prs.call_args.kwargs["labels"] is None
+
 
 # ---------------------------------------------------------------------------
 # Successful fetch — Markdown output

@@ -94,12 +94,15 @@ class GitHubClient:
         repo: str,
         states: list[str],
         limit: int | None = None,
+        labels: list[str] | None = None,
     ) -> Iterator[PullRequest]:
         after: str | None = None
         fetched = 0
         variables: dict[str, Any] = {"owner": owner, "repo": repo}
         if states != ["OPEN", "CLOSED", "MERGED"]:
             variables["states"] = states
+        if labels:
+            variables["labels"] = labels
 
         while True:
             if after:
