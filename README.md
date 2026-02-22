@@ -69,10 +69,10 @@ ghlens fetch owner/repo --label bug --limit 20
 ghlens fetch owner/repo --label bug --label performance --format markdown --output issues.md
 
 # Fetch a single PR as JSON
-ghlens pr torvalds/linux 12345
+ghlens pr vguerra/ghlens 1
 
 # Fetch a single PR as Markdown and save to file
-ghlens pr rust-lang/rust 99999 --format markdown --output pr.md
+ghlens pr vguerra/ghlens 1 --format markdown --output pr.md
 ```
 
 ## Output
