@@ -32,6 +32,7 @@ ghlens fetch [OPTIONS] OWNER/REPO
 | Option | Default | Description |
 |---|---|---|
 | `--state` | `ALL` | Filter by PR state: `OPEN`, `CLOSED`, `MERGED`, or `ALL` |
+| `--label LABEL` | none | Filter by label (repeat for multiple labels, OR logic) |
 | `--format` | `json` | Output format: `json` or `markdown` |
 | `--output PATH` | stdout | Write output to a file |
 | `--limit N` | unlimited | Stop after fetching N PRs |
@@ -47,6 +48,12 @@ ghlens fetch rust-lang/rust --state MERGED --limit 50 --format markdown --output
 
 # Stream all open PRs from a private repo (requires repo scope on token)
 ghlens fetch myorg/myrepo --state OPEN --format json
+
+# Fetch PRs with a specific label
+ghlens fetch owner/repo --label bug --limit 20
+
+# Fetch PRs that have any of several labels (OR logic)
+ghlens fetch owner/repo --label bug --label performance --format markdown --output issues.md
 ```
 
 ## Output
