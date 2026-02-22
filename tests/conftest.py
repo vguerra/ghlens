@@ -164,6 +164,20 @@ def review_threads_page_response(
     }
 
 
+def pr_by_number_response(
+    node: dict,
+    remaining: int = 4999,
+) -> dict:
+    return {
+        "data": {
+            "rateLimit": rate_limit_data(remaining),
+            "repository": {
+                "pullRequest": node,
+            },
+        }
+    }
+
+
 def thread_comments_page_response(
     nodes: list[dict],
     has_next_page: bool = False,
