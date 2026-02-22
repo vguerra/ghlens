@@ -12,6 +12,7 @@ from ghlens.errors import ApiError, AuthError, NetworkError, RateLimitError, Rep
 from .conftest import (
     comment_node,
     comments_page_response,
+    pr_by_number_response,
     pr_list_response,
     pr_node,
     review_comment_node,
@@ -436,3 +437,79 @@ class TestReviewThreadPagination:
         with GitHubClient("token") as client:
             prs = list(client.fetch_prs("owner", "repo", ["MERGED"]))
         assert prs[0].review_comments[0].line is None
+
+
+# ---------------------------------------------------------------------------
+# fetch_pr()
+# ---------------------------------------------------------------------------
+
+
+class TestFetchPr:
+    def test_returns_single_pr(self, respx_mock):
+        node = pr_node(number=42, title="Single PR", labels=["feature"])
+        respx_mock.post(GQL_URL).mock(return_value=httpx.Response(200, json=pr_by_number_response(node)))
+        with GitHubClient("token") as client:
+            result = client.fetch_pr("owner", "repo", 42)
+        assert result.number == 42
+        assert result.title == "Single PR"
+        assert result.labels == ["feature"]
+        assert result.author == "alice"
+        assert result.additions == 10
+        assert result.deletions == 5
+        assert result.changed_files == 2
+
+    def test_pr_not_found_raises(self, respx_mock):
+        body = {
+            "data": {
+                "rateLimit": {"cost": 1, "remaining": 4999, "resetAt": "x"},
+                "repository": {"pullRequest": None},
+            }
+        }
+        respx_mock.post(GQL_URL).mock(return_value=httpx.Response(200, json=body))
+        with GitHubClient("token") as client:
+            with pytest.raises(RepoNotFoundError, match="#99"):
+                client.fetch_pr("owner", "repo", 99)
+
+    def test_repo_not_found_raises(self, respx_mock):
+        body = {
+            "data": {
+                "rateLimit": {"cost": 1, "remaining": 4999, "resetAt": "x"},
+                "repository": None,
+            }
+        }
+        respx_mock.post(GQL_URL).mock(return_value=httpx.Response(200, json=body))
+        with GitHubClient("token") as client:
+            with pytest.raises(RepoNotFoundError, match="owner/repo"):
+                client.fetch_pr("owner", "repo", 1)
+
+    def test_inline_comments_parsed(self, respx_mock):
+        node = pr_node(comment_nodes=[comment_node(id="C1", body="Nice work")])
+        respx_mock.post(GQL_URL).mock(return_value=httpx.Response(200, json=pr_by_number_response(node)))
+        with GitHubClient("token") as client:
+            result = client.fetch_pr("owner", "repo", 1)
+        assert len(result.comments) == 1
+        assert result.comments[0].id == "C1"
+        assert result.comments[0].body == "Nice work"
+
+    def test_inline_review_comments_flattened(self, respx_mock):
+        rc = review_comment_node(id="RC1", path="main.py", line=7)
+        node = pr_node(thread_nodes=[thread_node(id="T1", comment_nodes=[rc])])
+        respx_mock.post(GQL_URL).mock(return_value=httpx.Response(200, json=pr_by_number_response(node)))
+        with GitHubClient("token") as client:
+            result = client.fetch_pr("owner", "repo", 1)
+        assert len(result.review_comments) == 1
+        assert result.review_comments[0].id == "RC1"
+        assert result.review_comments[0].path == "main.py"
+        assert result.review_comments[0].line == 7
+
+    def test_sends_correct_variables(self, respx_mock):
+        node = pr_node(number=123)
+        route = respx_mock.post(GQL_URL).mock(
+            return_value=httpx.Response(200, json=pr_by_number_response(node))
+        )
+        with GitHubClient("token") as client:
+            client.fetch_pr("myowner", "myrepo", 123)
+        body = json.loads(route.calls[0].request.content)
+        assert body["variables"]["owner"] == "myowner"
+        assert body["variables"]["repo"] == "myrepo"
+        assert body["variables"]["number"] == 123

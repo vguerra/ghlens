@@ -120,3 +120,65 @@ def fetch(
         _stderr.print(f"[green]Wrote {len(prs)} PRs to {output_path}[/green]")
     else:
         click.echo(output)
+
+
+@cli.command()
+@click.argument("repo", metavar="OWNER/REPO")
+@click.argument("number", type=int)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "markdown"]),
+    default="json",
+    show_default=True,
+    help="Output format.",
+)
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Write output to a file instead of stdout.",
+)
+def pr(repo: str, number: int, output_format: str, output_path: Path | None) -> None:
+    """Fetch a single pull request by NUMBER from OWNER/REPO."""
+    if "/" not in repo or repo.count("/") != 1:
+        raise click.BadParameter(
+            f"{repo!r} is not a valid OWNER/REPO format.",
+            param_hint="REPO",
+        )
+    owner, repo_name = repo.split("/", 1)
+    if not owner or not repo_name:
+        raise click.BadParameter(
+            f"{repo!r} is not a valid OWNER/REPO format.",
+            param_hint="REPO",
+        )
+
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        _stderr.print("[red]Error:[/red] GITHUB_TOKEN environment variable is not set.")
+        sys.exit(1)
+
+    result = None
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=_stderr,
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Fetching PR #{number} from {repo}…", total=None)
+            with GitHubClient(token) as client:
+                result = client.fetch_pr(owner, repo_name, number)
+    except GhLensError as exc:
+        _stderr.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+    formatter = get_formatter(output_format, owner_repo=repo)
+    output = formatter([result])
+
+    if output_path is not None:
+        output_path.write_text(output, encoding="utf-8")
+        _stderr.print(f"[green]Wrote PR #{number} to {output_path}[/green]")
+    else:
+        click.echo(output)

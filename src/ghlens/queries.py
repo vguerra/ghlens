@@ -139,6 +139,68 @@ query PullRequestReviewThreads($prId: ID!, $after: String) {
 }
 """
 
+PR_BY_NUMBER_QUERY = """
+query PullRequest($owner: String!, $repo: String!, $number: Int!) {
+  rateLimit {
+    cost
+    remaining
+    resetAt
+  }
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      id
+      number
+      title
+      state
+      url
+      createdAt
+      updatedAt
+      mergedAt
+      additions
+      deletions
+      changedFiles
+      author {
+        login
+      }
+      labels(first: 20) {
+        nodes {
+          name
+        }
+      }
+      comments(first: 50) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          author { login }
+          body
+          url
+          createdAt
+        }
+      }
+      reviewThreads(first: 30) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id
+          comments(first: 10) {
+            pageInfo { hasNextPage endCursor }
+            nodes {
+              id
+              author { login }
+              body
+              path
+              line
+              diffHunk
+              url
+              createdAt
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
 THREAD_COMMENTS_PAGE_QUERY = """
 query ReviewThreadComments($threadId: ID!, $after: String) {
   node(id: $threadId) {

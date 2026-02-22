@@ -10,7 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 from ghlens.cli import cli
-from ghlens.errors import AuthError, RateLimitError
+from ghlens.errors import AuthError, RateLimitError, RepoNotFoundError
 
 from .conftest import make_conv_comment, make_pull_request, make_review_comment
 
@@ -270,3 +270,71 @@ class TestErrorHandling:
         assert "--format" in result.output
         assert "--limit" in result.output
         assert "--output" in result.output
+
+
+# ---------------------------------------------------------------------------
+# pr subcommand
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_pr_client(mocker, sample_pr):
+    """Patch GitHubClient so fetch_pr returns sample_pr."""
+    mock_instance = MagicMock()
+    mock_instance.__enter__ = MagicMock(return_value=mock_instance)
+    mock_instance.__exit__ = MagicMock(return_value=False)
+    mock_instance.fetch_pr.return_value = sample_pr
+    mocker.patch("ghlens.cli.GitHubClient", return_value=mock_instance)
+    return mock_instance
+
+
+class TestPrCommand:
+    def test_exits_0_on_success(self, runner, mock_pr_client):
+        result = runner.invoke(cli, ["pr", "owner/repo", "1"], env={"GITHUB_TOKEN": "tok"})
+        assert result.exit_code == 0
+
+    def test_stdout_is_valid_json(self, runner, mock_pr_client):
+        result = runner.invoke(cli, ["pr", "owner/repo", "1"], env={"GITHUB_TOKEN": "tok"})
+        parsed = json.loads(result.output)
+        assert isinstance(parsed, list)
+        assert len(parsed) == 1
+
+    def test_pr_fields_present(self, runner, mock_pr_client, sample_pr):
+        result = runner.invoke(cli, ["pr", "owner/repo", "1"], env={"GITHUB_TOKEN": "tok"})
+        parsed = json.loads(result.output)
+        assert parsed[0]["number"] == sample_pr.number
+        assert parsed[0]["title"] == sample_pr.title
+
+    def test_passes_number_to_client(self, runner, mock_pr_client):
+        runner.invoke(cli, ["pr", "owner/repo", "42"], env={"GITHUB_TOKEN": "tok"})
+        mock_pr_client.fetch_pr.assert_called_once_with("owner", "repo", 42)
+
+    def test_pr_not_found_exits_1(self, runner, mocker):
+        mock_instance = MagicMock()
+        mock_instance.__enter__ = MagicMock(return_value=mock_instance)
+        mock_instance.__exit__ = MagicMock(return_value=False)
+        mock_instance.fetch_pr.side_effect = RepoNotFoundError("PR #99 not found")
+        mocker.patch("ghlens.cli.GitHubClient", return_value=mock_instance)
+
+        result = runner.invoke(cli, ["pr", "owner/repo", "99"], env={"GITHUB_TOKEN": "tok"})
+        assert result.exit_code == 1
+
+    def test_markdown_format(self, runner, mock_pr_client, sample_pr):
+        result = runner.invoke(
+            cli, ["pr", "owner/repo", "1", "--format", "markdown"], env={"GITHUB_TOKEN": "tok"}
+        )
+        assert result.exit_code == 0
+        assert f"## PR #{sample_pr.number}" in result.output
+
+    def test_output_to_file(self, runner, mock_pr_client, tmp_path):
+        out = tmp_path / "pr.json"
+        result = runner.invoke(
+            cli,
+            ["pr", "owner/repo", "1", "--output", str(out)],
+            env={"GITHUB_TOKEN": "tok"},
+        )
+        assert result.exit_code == 0
+        assert out.exists()
+        parsed = json.loads(out.read_text())
+        assert isinstance(parsed, list)
+        assert len(parsed) == 1

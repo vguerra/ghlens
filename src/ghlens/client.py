@@ -11,6 +11,7 @@ from .errors import ApiError, AuthError, NetworkError, RateLimitError, RepoNotFo
 from .models import ConversationalComment, PullRequest, ReviewComment
 from .queries import (
     COMMENTS_PAGE_QUERY,
+    PR_BY_NUMBER_QUERY,
     PR_LIST_QUERY,
     REVIEW_THREADS_PAGE_QUERY,
     THREAD_COMMENTS_PAGE_QUERY,
@@ -160,6 +161,42 @@ class GitHubClient:
             if not page_info["hasNextPage"]:
                 break
             after = page_info["endCursor"]
+
+    def fetch_pr(self, owner: str, repo: str, number: int) -> PullRequest:
+        data = self.execute(PR_BY_NUMBER_QUERY, {"owner": owner, "repo": repo, "number": number})
+        repo_data = data.get("data", {}).get("repository")
+        if repo_data is None:
+            raise RepoNotFoundError(f"Repository {owner}/{repo} not found.")
+        node = repo_data.get("pullRequest")
+        if node is None:
+            raise RepoNotFoundError(f"Pull request #{number} not found in {owner}/{repo}.")
+
+        comments = self._complete_comments(
+            pr_node_id=node["id"],
+            existing=[self._parse_comment(c) for c in node["comments"]["nodes"]],
+            page_info=node["comments"]["pageInfo"],
+        )
+        review_comments = self._complete_review_threads(
+            pr_node_id=node["id"],
+            existing_threads=node["reviewThreads"]["nodes"],
+            page_info=node["reviewThreads"]["pageInfo"],
+        )
+        return PullRequest(
+            number=node["number"],
+            title=node["title"],
+            author=node["author"]["login"] if node.get("author") else None,
+            state=node["state"],
+            url=node["url"],
+            created_at=node["createdAt"],
+            updated_at=node["updatedAt"],
+            merged_at=node.get("mergedAt"),
+            labels=[lbl["name"] for lbl in node["labels"]["nodes"]],
+            changed_files=node["changedFiles"],
+            additions=node["additions"],
+            deletions=node["deletions"],
+            comments=comments,
+            review_comments=review_comments,
+        )
 
     def _complete_comments(
         self,

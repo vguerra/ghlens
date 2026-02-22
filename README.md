@@ -25,6 +25,8 @@ The token needs the `repo` scope for private repositories; no extra scopes are r
 
 ## Usage
 
+### Fetch multiple PRs
+
 ```
 ghlens fetch [OPTIONS] OWNER/REPO
 ```
@@ -36,6 +38,17 @@ ghlens fetch [OPTIONS] OWNER/REPO
 | `--format` | `json` | Output format: `json` or `markdown` |
 | `--output PATH` | stdout | Write output to a file |
 | `--limit N` | unlimited | Stop after fetching N PRs |
+
+### Fetch a single PR
+
+```
+ghlens pr OWNER/REPO NUMBER [--format json|markdown] [--output PATH]
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `--format` | `json` | Output format: `json` or `markdown` |
+| `--output PATH` | stdout | Write output to a file |
 
 ### Examples
 
@@ -54,6 +67,12 @@ ghlens fetch owner/repo --label bug --limit 20
 
 # Fetch PRs that have any of several labels (OR logic)
 ghlens fetch owner/repo --label bug --label performance --format markdown --output issues.md
+
+# Fetch a single PR as JSON
+ghlens pr vguerra/ghlens 1
+
+# Fetch a single PR as Markdown and save to file
+ghlens pr vguerra/ghlens 1 --format markdown --output pr.md
 ```
 
 ## Output
